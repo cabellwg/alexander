@@ -24,9 +24,7 @@ pub struct BitBoard {
     position: u64
 }
 
-
-/// Bitboards for all pieces
-pub struct PiecewiseBoard {
+pub struct PieceSet {
     pawns: BitBoard,
     knights: BitBoard,
     bishops: BitBoard,
@@ -35,11 +33,12 @@ pub struct PiecewiseBoard {
     king: BitBoard
 }
 
-impl PiecewiseBoard {
-    fn new(side: Side) -> PiecewiseBoard {
+/// Bitboards for all pieces of a color
+impl PieceSet {
+    fn new(side: Side) -> PieceSet {
         match side {
             Side::White =>  {
-                PiecewiseBoard {
+                PieceSet {
                     pawns:   BitBoard { position: WHITE_PAWN_START_POS },
                     knights: BitBoard { position: WHITE_KNIGHT_START_POS },
                     bishops: BitBoard { position: WHITE_BISHOP_START_POS },
@@ -49,7 +48,7 @@ impl PiecewiseBoard {
                 }
             },
             Side::Black => {
-                PiecewiseBoard {
+                PieceSet {
                     pawns:   BitBoard { position: BLACK_PAWN_START_POS },
                     knights: BitBoard { position: BLACK_KNIGHT_START_POS },
                     bishops: BitBoard { position: BLACK_BISHOP_START_POS },
@@ -62,20 +61,32 @@ impl PiecewiseBoard {
     }
 }
 
+/// Bitboards for all pieces
+pub struct PiecewiseBoard {
+    white: PieceSet,
+    black: PieceSet
+}
+
+impl PiecewiseBoard {
+    pub fn new() -> PiecewiseBoard {
+        PiecewiseBoard {
+            white: PieceSet::new(Side::White),
+            black: PieceSet::new(Side::Black)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_piecewise_board_initialization() {
-        let board = PiecewiseBoard::new(Side::White);
+    fn test_pieceset_initialization() {
+        let board = PiecewiseBoard::new();
         
-        assert_eq!(WHITE_PAWN_START_POS, board.pawns.position);
-        assert_eq!(WHITE_KING_START_POS, board.king.position);
-
-        let board = PiecewiseBoard::new(Side::Black);
-
-        assert_eq!(BLACK_ROOK_START_POS, board.rooks.position);
-        assert_eq!(BLACK_QUEEN_START_POS, board.queens.position);
+        assert_eq!(WHITE_PAWN_START_POS, board.white.pawns.position);
+        assert_eq!(WHITE_KING_START_POS, board.white.king.position);
+        assert_eq!(BLACK_ROOK_START_POS, board.black.rooks.position);
+        assert_eq!(BLACK_QUEEN_START_POS, board.black.queens.position);
     }
 }
