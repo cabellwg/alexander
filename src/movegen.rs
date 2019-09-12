@@ -45,14 +45,14 @@ impl Move {
         self.move_type.is_capture()
     }
 
-    fn apply(&self, board: &Board) -> Board {
+    fn apply(&self, board: &mut Board) {
         match self.move_type {
             MoveType::Quiet | MoveType::DoublePawnPush => {
                 let piece_bb = board.bit_board_for(self.side, self.piece);
                 let move_bb = self.origin ^ self.target;
-                board.with_bit_board(piece_bb ^ move_bb, self.side, self.piece)
+                board.set_bit_board(piece_bb ^ move_bb, self.side, self.piece)
             },
-            _ => Board::new()
+            _ => ()
         }
     }
 }
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_quiet_move_apply() {
-        let board = Board::new();
+        let mut board = Board::new();
         let quiet_move = Move {
             side: Side::White,
             piece: Piece::Knight,
@@ -89,16 +89,16 @@ mod tests {
             move_type: MoveType::Quiet
         };
 
-        let new_board = quiet_move.apply(&board);
+        quiet_move.apply(&mut board);
 
         assert_eq!(BitBoard::from("c3") ^ BitBoard::from("g1"),
-                   new_board.bit_board_for(Side::White, Piece::Knight));
-        assert_eq!(BitBoard(0x000000000000ff00), new_board.bit_board_for(Side::White, Piece::Pawn));
+                   board.bit_board_for(Side::White, Piece::Knight));
+        assert_eq!(BitBoard(0x000000000000ff00), board.bit_board_for(Side::White, Piece::Pawn));
     }
 
     #[test]
     fn test_double_pawn_push() {
-        let board = Board::new();
+        let mut board = Board::new();
         let double_pawn_push = Move {
             side: Side::Black,
             piece: Piece::Pawn,
@@ -107,11 +107,11 @@ mod tests {
             move_type: MoveType::DoublePawnPush
         };
 
-        let new_board = double_pawn_push.apply(&board);
+        double_pawn_push.apply(&mut board);
 
         assert_eq!(BitBoard::from("b1") ^ BitBoard::from("g1"),
-                   new_board.bit_board_for(Side::White, Piece::Knight));
-        assert_eq!(BitBoard(0x00fb000400000000), new_board.bit_board_for(Side::Black, Piece::Pawn));
+                   board.bit_board_for(Side::White, Piece::Knight));
+        assert_eq!(BitBoard(0x00fb000400000000), board.bit_board_for(Side::Black, Piece::Pawn));
 
     }
 }

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::error::Error;
 use std::ops::BitXor;
 use std::str::FromStr;
 
@@ -29,40 +30,16 @@ const BLACK_KING_START_POS: u64   = 0x0800000000000000;
 #[derive(PartialEq, Copy, Clone)]
 pub struct BitBoard(pub u64);
 
-impl BitBoard {
-    /// Maps a file to its numerical index
-    fn file_index_of(file: &str) -> u8 {
-        match file {
-            "a" => 0,
-            "b" => 1,
-            "c" => 2,
-            "d" => 3,
-            "e" => 4,
-            "f" => 5,
-            "g" => 6,
-            "h" => 7,
-            _ => u8::max_value()
-        }
-    }
-}
-
 impl From<&str> for BitBoard {
     /// Maps a coordinate to a square on a bitboard
     fn from(square: &str) -> Self {
-        let filtre = Regex::new(r"(?i)[a-h][1-8]").unwrap();
-        if !filtre.is_match(square) { return BitBoard(0); }
+        let bit_index = lerf_index_for(square).unwrap_or(u8::max_value());
 
-        let sqre = Regex::new(r"(?P<file>[a-h])(?P<rank>[1-8])").unwrap();
-        let captures = sqre.captures(square).unwrap();
-        let rank_str = &captures["rank"];
-        let file_str = &captures["file"];
+        if bit_index < u8::max_value() {
+            return BitBoard(1u64 << bit_index)
+        }
 
-        let file_index = Self::file_index_of(file_str);
-        let rank_index = u8::from_str(rank_str).unwrap() - 1;
-
-        let bit_index = rank_index * 8 + file_index;
-
-        BitBoard(1u64 << bit_index)
+        BitBoard(0)
     }
 }
 
@@ -98,7 +75,23 @@ impl fmt::Debug for BitBoard {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+
+/// 8x8 board to store pieces by square
+///
+/// Indexed by file then rank
+#[derive(Copy, Clone)]
+pub struct _8x8Board(pub [[(Side, Piece); 8]; 8]);
+
+impl _8x8Board {
+    /// Creates a new 8x8 board with the default piece configuration
+    // pub fn new() -> _8x8Board {
+    //     _8x8Board()
+    // }
+
+    pub fn add_piece(side: Side, piece: Piece, square: &str) {
+    }
+}
+
 pub struct PieceSet {
     pawns: BitBoard,
     knights: BitBoard,
@@ -146,24 +139,19 @@ impl PieceSet {
         }
     }
 
-    fn with_bit_board(&self, bit_board: BitBoard, piece: Piece) -> PieceSet {
-        let mut new_set = *self;
-
+    fn set_bit_board(&mut self, bit_board: BitBoard, piece: Piece) {
         match piece {
-            Piece::Pawn => { new_set.pawns = bit_board; },
-            Piece::Knight => { new_set.knights = bit_board; },
-            Piece::Bishop => { new_set.bishops = bit_board; },
-            Piece::Rook => { new_set.rooks = bit_board; },
-            Piece::Queen => { new_set.queens = bit_board; },
-            Piece::King => { new_set.king = bit_board; }
+            Piece::Pawn => { self.pawns = bit_board; },
+            Piece::Knight => { self.knights = bit_board; },
+            Piece::Bishop => { self.bishops = bit_board; },
+            Piece::Rook => { self.rooks = bit_board; },
+            Piece::Queen => { self.queens = bit_board; },
+            Piece::King => { self.king = bit_board; }
         }
-
-        new_set
     }
 }
 
 /// Bitboards for all pieces on the board
-#[derive(Copy, Clone, PartialEq)]
 pub struct Board {
     white: PieceSet,
     black: PieceSet
@@ -184,18 +172,69 @@ impl Board {
         }
     }
 
-    pub fn with_bit_board(&self, bit_board: BitBoard, side: Side, piece: Piece) -> Board {
-        let mut new_board = *self;
-
+    pub fn set_bit_board(&mut self, bit_board: BitBoard, side: Side, piece: Piece) {
         match side {
             Side::White => {
-                new_board.white = new_board.white.with_bit_board(bit_board, piece);
+                self.white.set_bit_board(bit_board, piece);
             },
             Side::Black => {
-                new_board.black = new_board.black.with_bit_board(bit_board, piece);
+                self.black.set_bit_board(bit_board, piece);
             }
         }
-        new_board
+    }
+}
+
+/// Error type for square parse errors
+#[derive(Debug)]
+struct InvalidSquareError {
+    msg: String
+}
+
+impl fmt::Display for InvalidSquareError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid square: {}", self.msg)
+    }
+}
+
+/// Little-endian rank-file index of a square
+/// 
+/// ```
+/// lerf_index = rank_index * 8 + file_index
+/// ```
+fn lerf_index_for(square: &str) -> Result<u8, InvalidSquareError> {
+    let filtre = Regex::new(r"(?i)[a-h][1-8]").unwrap();
+    if !filtre.is_match(square) { return Err(InvalidSquareError { msg: square.to_string() }) }
+
+    let sqre = Regex::new(r"(?P<file>[a-h])(?P<rank>[1-8])").unwrap();
+    let captures = sqre.captures(square).unwrap();
+    let rank_str = &captures["rank"];
+    let file_str = &captures["file"];
+
+    let file_index = file_index_of(file_str);
+    let rank_index = u8::from_str(rank_str).unwrap() - 1;
+
+    Ok(rank_index * 8 + file_index)
+}
+
+/// Maps a file to its numerical index
+/// 
+/// ```
+/// a = 0,
+/// b = 1,
+/// ...
+/// h = 7
+/// ```
+fn file_index_of(file: &str) -> u8 {
+    match file {
+        "a" => 0,
+        "b" => 1,
+        "c" => 2,
+        "d" => 3,
+        "e" => 4,
+        "f" => 5,
+        "g" => 6,
+        "h" => 7,
+        _ => u8::max_value()
     }
 }
 
@@ -206,10 +245,10 @@ mod tests {
 
     #[test]
     fn test_file_index_of() {
-        assert_eq!(0, BitBoard::file_index_of("a"));
-        assert_eq!(4, BitBoard::file_index_of("e"));
-        assert_eq!(7, BitBoard::file_index_of("h"));
-        assert_eq!(u8::max_value(), BitBoard::file_index_of("j"));
+        assert_eq!(0, file_index_of("a"));
+        assert_eq!(4, file_index_of("e"));
+        assert_eq!(7, file_index_of("h"));
+        assert_eq!(u8::max_value(), file_index_of("j"));
     }
 
     #[test]
@@ -238,25 +277,25 @@ mod tests {
     }
 
     #[test]
-    fn test_pieceset_with_bit_board() {
-        let piece_set = PieceSet::new(Side::White);
+    fn test_pieceset_set_bit_board() {
+        let mut pieces = PieceSet::new(Side::White);
 
-        let altered_pieces = piece_set.with_bit_board(BitBoard(0xf), Piece::Knight);
+        pieces.set_bit_board(BitBoard(0xf), Piece::Knight);
 
-        assert_eq!(BitBoard(0xf), altered_pieces.knights);
+        assert_eq!(BitBoard(0xf), pieces.knights);
 
-        let altered_pieces = piece_set.with_bit_board(BitBoard(0xd), Piece::King);
+        pieces.set_bit_board(BitBoard(0xd), Piece::King);
 
-        assert_eq!(BitBoard(0xd), altered_pieces.king);
+        assert_eq!(BitBoard(0xd), pieces.king);
     }
 
     #[test]
-    fn test_board_with_bit_board() {
-        let board = Board::new();
+    fn test_board_set_bit_board() {
+        let mut board = Board::new();
 
-        let altered_board = board.with_bit_board(BitBoard(0xe), Side::Black, Piece::Queen);
+        board.set_bit_board(BitBoard(0xe), Side::Black, Piece::Queen);
 
-        assert_eq!(BitBoard(0xe), altered_board.black.queens);
-        assert_eq!(BitBoard(WHITE_QUEEN_START_POS), altered_board.white.queens);
+        assert_eq!(BitBoard(0xe), board.black.queens);
+        assert_eq!(BitBoard(WHITE_QUEEN_START_POS), board.white.queens);
     }
 }
