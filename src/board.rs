@@ -1,7 +1,7 @@
+use std::convert::TryFrom;
 use std::fmt;
 use std::ops::BitXor;
 use std::str::FromStr;
-use std::convert::TryFrom;
 
 use regex::Regex;
 
@@ -85,13 +85,14 @@ impl _8x8Board {
         _8x8Board::try_from([
             ["♜", "♞", "♝", "♛", "♚", "♝", "♞", "♜"],
             ["♟", "♟", "♟", "♟", "♟", "♟", "♟", "♟"],
-            ["",  "",  "",  "",  "",  "",  "",  "" ],
-            ["",  "",  "",  "",  "",  "",  "",  "" ],
-            ["",  "",  "",  "",  "",  "",  "",  "" ],
-            ["",  "",  "",  "",  "",  "",  "",  "" ],
+            ["", "", "", "", "", "", "", ""],
+            ["", "", "", "", "", "", "", ""],
+            ["", "", "", "", "", "", "", ""],
+            ["", "", "", "", "", "", "", ""],
             ["♙", "♙", "♙", "♙", "♙", "♙", "♙", "♙"],
             ["♖", "♘", "♗", "♕", "♔", "♗", "♘", "♖"],
-        ]).unwrap()
+        ])
+        .unwrap()
     }
 
     /// Creates a new, empty 8x8 board
@@ -127,7 +128,7 @@ impl TryFrom<[[&str; 8]; 8]> for _8x8Board {
             for (file_index, piece) in rank.iter().enumerate() {
                 new_board.0[7 - rank_index][file_index] = match piece {
                     &"" => None,
-                    _ => Some(Piece::try_from(board[rank_index][file_index])?)
+                    _ => Some(Piece::try_from(board[rank_index][file_index])?),
                 }
             }
         }
@@ -141,7 +142,7 @@ impl fmt::Display for _8x8Board {
         let mut display_str = "".to_string();
         for (rank_index, rank) in self.0.iter().enumerate() {
             display_str.push_str(&format!("{} ", 8 - rank_index));
-            for (file_index, piece) in rank.iter().enumerate() {
+            for (_file_index, piece) in rank.iter().enumerate() {
                 if let Some(piece) = piece {
                     display_str += &piece.to_string();
                 } else {
@@ -228,6 +229,7 @@ impl PieceSet {
 pub struct Board {
     white: PieceSet,
     black: PieceSet,
+    squares: _8x8Board,
 }
 
 impl Board {
@@ -235,6 +237,7 @@ impl Board {
         Board {
             white: PieceSet::new(Side::White),
             black: PieceSet::new(Side::Black),
+            squares: _8x8Board::new(),
         }
     }
 
@@ -254,6 +257,18 @@ impl Board {
                 self.black.set_bit_board(bit_board, piece.ptype);
             }
         }
+    }
+
+    pub fn get_square(&self, square: &str) -> Option<Piece> {
+        self.squares.get_square(square)
+    }
+
+    pub fn set_square(
+        &mut self,
+        square: &str,
+        piece: Option<Piece>,
+    ) -> Result<(), InvalidSquareError> {
+        self.squares.set_square(square, piece)
     }
 }
 
@@ -388,14 +403,34 @@ mod tests {
 
         assert_eq!(None, board.get_square(&"a4"));
         assert_eq!(None, board.get_square(&"d5"));
-        assert_eq!(Some(Piece { side: Side::White, ptype: PieceType::Queen }),
-            board.get_square(&"d1"));
-        assert_eq!(Some(Piece { side: Side::White, ptype: PieceType::King }),
-            board.get_square(&"e1"));
-        assert_eq!(Some(Piece { side: Side::Black, ptype: PieceType::Queen }),
-            board.get_square(&"d8"));
-        assert_eq!(Some(Piece { side: Side::Black, ptype: PieceType::Bishop }),
-            board.get_square(&"f8"));
+        assert_eq!(
+            Some(Piece {
+                side: Side::White,
+                ptype: PieceType::Queen
+            }),
+            board.get_square(&"d1")
+        );
+        assert_eq!(
+            Some(Piece {
+                side: Side::White,
+                ptype: PieceType::King
+            }),
+            board.get_square(&"e1")
+        );
+        assert_eq!(
+            Some(Piece {
+                side: Side::Black,
+                ptype: PieceType::Queen
+            }),
+            board.get_square(&"d8")
+        );
+        assert_eq!(
+            Some(Piece {
+                side: Side::Black,
+                ptype: PieceType::Bishop
+            }),
+            board.get_square(&"f8")
+        );
     }
 
     #[test]

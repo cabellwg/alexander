@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::board::{BitBoard, Board};
 use crate::types::*;
 
@@ -29,8 +31,8 @@ impl MoveType {
 
 pub struct Move {
     piece: Piece,
-    origin: BitBoard,
-    target: BitBoard,
+    origin: String,
+    target: String,
     move_type: MoveType,
 }
 
@@ -39,15 +41,21 @@ impl Move {
         self.move_type.is_capture()
     }
 
-    fn apply(&self, board: &mut Board) {
+    fn apply(&self, board: &mut Board) -> Result<(), Box<dyn Error>> {
         match self.move_type {
             MoveType::Quiet | MoveType::DoublePawnPush => {
                 let piece_bb = board.bit_board_for(self.piece);
-                let move_bb = self.origin ^ self.target;
-                board.set_bit_board(piece_bb ^ move_bb, self.piece)
-            }
+                let move_bb = BitBoard::from(self.origin.as_str())
+                    ^ BitBoard::from(self.target.as_str());
+                board.set_bit_board(piece_bb ^ move_bb, self.piece);
+                board.set_square(self.origin.as_str(), None)?;
+                board.set_square(self.target.as_str(), Some(self.piece))?;
+            },
+            MoveType::KingsideCastle => {
+            },
             _ => (),
-        }
+        };
+        Ok(())
     }
 }
 
@@ -72,12 +80,12 @@ mod tests {
         };
         let quiet_move = Move {
             piece: piece,
-            origin: BitBoard::from("b1"),
-            target: BitBoard::from("c3"),
+            origin: "b1".to_string(),
+            target: "c3".to_string(),
             move_type: MoveType::Quiet,
         };
 
-        quiet_move.apply(&mut board);
+        assert!(quiet_move.apply(&mut board).is_ok());
 
         assert_eq!(
             BitBoard::from("c3") ^ BitBoard::from("g1"),
@@ -90,6 +98,8 @@ mod tests {
                 ptype: PieceType::Pawn
             })
         );
+        assert_eq!(Some(piece), board.get_square("c3"));
+        assert_eq!(None, board.get_square("b1"));
     }
 
     #[test]
@@ -101,12 +111,12 @@ mod tests {
         };
         let double_pawn_push = Move {
             piece: piece,
-            origin: BitBoard::from("c7"),
-            target: BitBoard::from("c5"),
+            origin: "c7".to_string(),
+            target: "c5".to_string(),
             move_type: MoveType::DoublePawnPush,
         };
 
-        double_pawn_push.apply(&mut board);
+        assert!(double_pawn_push.apply(&mut board).is_ok());
 
         assert_eq!(
             BitBoard::from("b1") ^ BitBoard::from("g1"),
@@ -116,5 +126,7 @@ mod tests {
             })
         );
         assert_eq!(BitBoard(0x00fb000400000000), board.bit_board_for(piece));
+        assert_eq!(Some(piece), board.get_square("c5"));
+        assert_eq!(None, board.get_square("c7"));
     }
 }
